@@ -14,7 +14,7 @@ PASSWORD = "SGE#2026adds"
 SGE_RED = "#E10019"
 SGE_BLACK = "#000000"
 # Robustere Logo-Quelle
-LOGO_URL = "logo.png"
+LOGO_URL = "Logo.png"
 # Fallback Logo falls der Link oben hakt (Wikipedia)
 LOGO_URL_ALT = "https://upload.wikimedia.org/wikipedia/commons/0/04/Eintracht_Frankfurt_Logo.svg"
 
@@ -276,4 +276,5 @@ if check_password():
                     p_bytes = create_pdf(res_df[['Start im Loop', 'Name', 'Dauer', 'Typ', 'id']], buf)
                     st.download_button("📄 PDF-Report", p_bytes, "SGE_Report.pdf", "application/pdf")
                     plt.close(fig)
+
 
