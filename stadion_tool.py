@@ -7,24 +7,79 @@ import os
 import matplotlib.pyplot as plt
 from fpdf import FPDF
 import io
+import requests
 
-# --- KONFIGURATION & LOGIN ---
+# --- KONFIGURATION & BRANDING ---
 STORAGE_FILE = "data_storage.json"
 PASSWORD = "SGE#2026adds"
+SGE_RED = "#E10019"
+SGE_BLACK = "#000000"
+LOGO_URL = "https://upload.wikimedia.org/wikipedia/commons/thumb/0/04/Eintracht_Frankfurt_Logo.svg/1024px-Eintracht_Frankfurt_Logo.svg.png"
 
+# --- CUSTOM CSS FÜR SGE-LOOK ---
+def inject_sge_css():
+    st.markdown(f"""
+        <style>
+        /* Hintergrund & Hauptfarben */
+        .stApp {{
+            background-color: #ffffff;
+        }}
+        /* Sidebar Styling */
+        [data-testid="stSidebar"] {{
+            background-color: {SGE_BLACK};
+            color: white;
+        }}
+        [data-testid="stSidebar"] * {{
+            color: white !important;
+        }}
+        /* Buttons */
+        div.stButton > button:first-child {{
+            background-color: {SGE_RED};
+            color: white;
+            border: none;
+            border-radius: 5px;
+            font-weight: bold;
+        }}
+        div.stButton > button:hover {{
+            background-color: #b30014;
+            color: white;
+        }}
+        /* Überschriften */
+        h1, h2, h3 {{
+            color: {SGE_BLACK};
+            border-bottom: 2px solid {SGE_RED};
+            padding-bottom: 10px;
+        }}
+        /* Login Box */
+        .login-box {{
+            padding: 20px;
+            border: 2px solid {SGE_BLACK};
+            border-radius: 10px;
+            text-align: center;
+        }}
+        </style>
+    """, unsafe_allow_html=True)
+
+# --- LOGIN FUNKTION ---
 def check_password():
     if "authenticated" not in st.session_state:
         st.session_state.authenticated = False
     
     if not st.session_state.authenticated:
-        st.title("🔐 Login")
-        pwd = st.text_input("Bitte Passwort eingeben:", type="password")
-        if st.button("Anmelden"):
-            if pwd == PASSWORD:
-                st.session_state.authenticated = True
-                st.rerun()
-            else:
-                st.error("Falsches Passwort!")
+        inject_sge_css()
+        col1, col2, col3 = st.columns([1,2,1])
+        with col2:
+            st.image(LOGO_URL, width=200)
+            st.markdown("<div class='login-box'>", unsafe_allow_html=True)
+            st.title("SGE Ad-Inventory Login")
+            pwd = st.text_input("Passwort", type="password")
+            if st.button("Anmelden"):
+                if pwd == PASSWORD:
+                    st.session_state.authenticated = True
+                    st.rerun()
+                else:
+                    st.error("Zugriff verweigert. Falsches Passwort.")
+            st.markdown("</div>", unsafe_allow_html=True)
         return False
     return True
 
@@ -54,25 +109,38 @@ def load_data():
     for k, v in defaults.items():
         if k not in st.session_state.config: st.session_state.config[k] = v
 
-# --- PDF GENERIERUNG (FIXED) ---
+# --- PDF GENERIERUNG MIT LOGO ---
 def create_pdf(df, fig_buffer):
     pdf = FPDF()
     pdf.add_page()
+    
+    # Logo oben rechts
+    try:
+        pdf.image(LOGO_URL, x=170, y=8, w=25)
+    except:
+        pass # Falls URL nicht erreichbar
+
     pdf.set_font("Helvetica", "B", 16)
-    pdf.cell(0, 10, "Stadion Loop-Playliste & Analyse", ln=True, align="C")
+    pdf.set_text_color(225, 0, 25) # SGE Rot
+    pdf.cell(0, 10, "Eintracht Frankfurt - Ad-Inventory Report", ln=True)
+    
+    pdf.set_text_color(0, 0, 0) # Zurück zu Schwarz
+    pdf.set_font("Helvetica", "B", 10)
     pdf.ln(10)
     
-    pdf.set_font("Helvetica", "B", 10)
     col_width = (pdf.w - 20) / 5
     headers = ["Start", "Name", "Dauer", "Typ", "ID"]
+    pdf.set_fill_color(0, 0, 0)
+    pdf.set_text_color(255, 255, 255)
     for header in headers:
-        pdf.cell(col_width, 10, header, border=1, align="C")
+        pdf.cell(col_width, 10, header, border=1, align="C", fill=True)
     pdf.ln()
     
+    pdf.set_text_color(0, 0, 0)
     pdf.set_font("Helvetica", "", 9)
     for _, row in df.iterrows():
         pdf.cell(col_width, 8, str(row['Start im Loop']), border=1)
-        pdf.cell(col_width, 8, str(row['Name'])[:22] + ".." if len(str(row['Name'])) > 22 else str(row['Name']), border=1)
+        pdf.cell(col_width, 8, str(row['Name'])[:22], border=1)
         pdf.cell(col_width, 8, f"{row['Dauer']}s", border=1)
         pdf.cell(col_width, 8, str(row['Typ']), border=1)
         pdf.cell(col_width, 8, str(row['id']), border=1)
@@ -82,24 +150,31 @@ def create_pdf(df, fig_buffer):
     pdf.set_font("Helvetica", "B", 12)
     pdf.cell(0, 10, "Zeitverteilung im Loop", ln=True)
     
-    # Diagramm einbetten
     img_path = "temp_plot.png"
     with open(img_path, "wb") as f:
         f.write(fig_buffer.getvalue())
     pdf.image(img_path, x=10, y=pdf.get_y(), w=100)
     
-    # WICHTIG: Output als Bytes erzwingen für Streamlit
     return bytes(pdf.output())
 
 # --- HAUPTPROGRAMM ---
 if check_password():
+    inject_sge_css()
     if 'spots' not in st.session_state:
         load_data()
 
-    st.set_page_config(page_title="Profi Ad-Manager", layout="wide")
-    st.title("🏟️ Stadion Ad-Inventory Manager")
+    st.set_page_config(page_title="SGE Ad-Manager", layout="wide", page_icon=LOGO_URL)
+    
+    col_head1, col_head2 = st.columns([4, 1])
+    with col_head1:
+        st.title("🦅 Stadion Ad-Inventory Manager")
+    with col_head2:
+        st.image(LOGO_URL, width=100)
 
-    st.sidebar.header("1. Konfiguration")
+    # ... Rest des Codes bleibt logisch identisch zum vorherigen Stand ...
+    # (Sidebar, Content-Eingabe, Generierungs-Logik)
+    
+    st.sidebar.header("⚙️ Konfiguration")
     if st.sidebar.button("💾 Alle Daten speichern"):
         save_data()
         st.sidebar.success("Gespeichert!")
@@ -132,7 +207,7 @@ if check_password():
     else:
         internal_pkg_pct = pkg_vals
 
-    st.header("2. Inhalts-Liste")
+    st.header("📂 Inhalts-Liste")
     with st.expander("➕ Neuen Spot hinzufügen", expanded=True):
         with st.form("add_form", clear_on_submit=True):
             c1, c2, c3 = st.columns([3, 1, 2])
@@ -182,11 +257,9 @@ if check_password():
                 
                 v_list = vereins_df.to_dict('records')
                 v_instances, v_counter, current_s_time = [], 0, sum(s['Dauer'] for s in s_pool)
-                
                 if v_list:
                     while (current_s_time + sum(v['Dauer'] for v in v_instances)) < final_loop_duration or v_counter < len(v_list):
-                        v_instances.append(v_list[v_counter % len(v_list)])
-                        v_counter += 1
+                        v_instances.append(v_list[v_counter % len(v_list)]); v_counter += 1
 
                 final_playlist = []
                 if play_mode == "Durchmischt":
@@ -194,23 +267,13 @@ if check_password():
                     v_idx = 0
                     for s in s_pool:
                         final_playlist.append(s)
-                        if v_idx < len(v_instances):
-                            v_spot = v_instances[v_idx].copy()
-                            v_spot['id'] = str(v_spot['id'])
-                            final_playlist.append(v_spot)
-                            v_idx += 1
-                    while v_idx < len(v_instances):
-                        v_spot = v_instances[v_idx].copy()
-                        v_spot['id'] = str(v_spot['id'])
-                        final_playlist.append(v_spot)
-                        v_idx += 1
+                        if v_idx < len(v_instances): final_playlist.append(v_instances[v_idx]); v_idx += 1
+                    final_playlist.extend(v_instances[v_idx:])
                 elif "zuerst" in play_mode:
                     s_pool.sort(key=lambda x: {"XL": 1, "L": 2, "M": 3, "S": 4}.get(x['Typ'], 5))
-                    for v in v_instances: v['id'] = str(v['id'])
                     final_playlist = s_pool + v_instances
                 else:
                     s_pool.sort(key=lambda x: {"XL": 1, "L": 2, "M": 3, "S": 4}.get(x['Typ'], 5))
-                    for v in v_instances: v['id'] = str(v['id'])
                     final_playlist = v_instances + s_pool
 
                 res_df = pd.DataFrame(final_playlist)
@@ -219,54 +282,26 @@ if check_password():
                     start_times.append(f"{int(t_acc//60):02d}:{int(t_acc%60):02d}"); t_acc += d
                 res_df.insert(0, "Start im Loop", start_times)
                 
-                res_df['id'] = res_df['id'].astype(str)
-                res_df['Dauer'] = res_df['Dauer'].astype(int)
-                
-                st.subheader("4. Generierte Loop-Playliste")
-                st.dataframe(
-                    res_df[['Start im Loop', 'Name', 'Dauer', 'Typ', 'id']],
-                    use_container_width=True,
-                    column_config={
-                        "Dauer": st.column_config.Column("Dauer (s)", width="small"),
-                        "id": st.column_config.Column("ID", width="small")
-                    }
-                )
-                
-                st.write(f"**Anzahl der Spots:** {len(res_df)}")
-                st.write(f"**Gesamtlaufzeit der Playliste:** {res_df['Dauer'].sum()} Sekunden")
+                st.subheader("📊 Generierte Loop-Playliste")
+                st.dataframe(res_df[['Start im Loop', 'Name', 'Dauer', 'Typ', 'id']], use_container_width=True)
+                st.write(f"**Spots:** {len(res_df)} | **Dauer:** {res_df['Dauer'].sum()}s")
 
                 st.divider()
-
                 col_ex1, col_ex2 = st.columns([1, 1])
-                
                 with col_ex1:
                     csv = res_df.to_csv(index=False, sep=';').encode('utf-8-sig')
-                    st.download_button("📥 Als CSV (für Excel) exportieren", csv, "playlist_stadion.csv", "text/csv")
+                    st.download_button("📥 Excel-Export", csv, "playlist_stadion.csv", "text/csv")
                     
-                    # --- PLOT GENERIERUNG ---
                     plot_data = res_df.groupby(['Name', 'Typ'])['Dauer'].sum().reset_index()
                     fig, ax = plt.subplots(figsize=(3, 3))
                     cmap = plt.get_cmap('tab20')
                     colors = [cmap(i % 20) if t != 'Verein (Puffer)' else '#d3d3d3' for i, t in enumerate(plot_data['Typ'])]
-                    
-                    ax.pie(plot_data['Dauer'], labels=plot_data['Name'], autopct='%1.1f%%', 
-                           startangle=90, colors=colors, wedgeprops={'edgecolor': 'black', 'linewidth': 0.5},
-                           textprops={'fontsize': 7})
+                    ax.pie(plot_data['Dauer'], labels=plot_data['Name'], autopct='%1.1f%%', startangle=90, colors=colors, wedgeprops={'edgecolor': 'black', 'linewidth': 0.5}, textprops={'fontsize': 7})
                     ax.axis('equal')
                     st.pyplot(fig)
                     
-                    # Buffer für PDF
                     buf = io.BytesIO()
                     fig.savefig(buf, format="png", bbox_inches='tight', dpi=150)
-                    
-                    # PDF Daten erzeugen
                     pdf_bytes = create_pdf(res_df[['Start im Loop', 'Name', 'Dauer', 'Typ', 'id']], buf)
-                    
-                    st.download_button(
-                        label="📄 Als PDF (Playlist + Grafik) herunterladen",
-                        data=pdf_bytes,
-                        file_name="Stadion_Report.pdf",
-                        mime="application/pdf"
-                    )
-                    # Wichtig für den Speicher in der Cloud
+                    st.download_button(label="📄 PDF-Report (SGE Brand)", data=pdf_bytes, file_name="SGE_Ad_Report.pdf", mime="application/pdf")
                     plt.close(fig)
