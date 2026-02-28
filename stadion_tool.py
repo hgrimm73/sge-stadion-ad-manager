@@ -13,53 +13,69 @@ STORAGE_FILE = "data_storage.json"
 PASSWORD = "SGE#2026adds"
 SGE_RED = "#E10019"
 SGE_BLACK = "#000000"
-
-# Logo-Logik: Lokal oder Fallback
+# Lokale Datei logo.png nutzen
 LOGO_PATH = "logo.png"
-LOGO_URL_FALLBACK = "https://upload.wikimedia.org/wikipedia/commons/thumb/0/04/Eintracht_Frankfurt_Logo.svg/1024px-Eintracht_Frankfurt_Logo.svg.png"
 
-def get_logo():
-    if os.path.exists(LOGO_PATH):
-        return LOGO_PATH
-    return LOGO_URL_FALLBACK
-
-# --- EXTREM ROBUSTES CSS ---
+# --- CSS: FORCE LIGHT MODE & SGE BRANDING ---
 def inject_sge_css():
     st.markdown(f"""
         <style>
-        .stApp {{ background-color: #ffffff !important; }}
+        /* Gesamter Hintergrund immer Weiß */
+        .stApp {{
+            background-color: #ffffff !important;
+        }}
         
-        /* Sidebar */
-        [data-testid="stSidebar"] {{ background-color: {SGE_BLACK} !important; }}
-        [data-testid="stSidebar"] * {{ color: #ffffff !important; }}
+        /* Sidebar: SGE Schwarz */
+        [data-testid="stSidebar"] {{
+            background-color: {SGE_BLACK} !important;
+            min-width: 300px !important;
+        }}
+        
+        /* Texte in der Sidebar immer Weiß */
+        [data-testid="stSidebar"] p, [data-testid="stSidebar"] span, 
+        [data-testid="stSidebar"] label, [data-testid="stSidebar"] div {{
+            color: #ffffff !important;
+        }}
 
-        /* KONTRAST-FIX: Alle Eingabefelder auf Weiß/Schwarz */
+        /* Hauptinhalt: Alle Texte immer Schwarz */
+        .stApp p, .stApp span, .stApp label, .stApp h1, .stApp h2, .stApp h3, .stApp li {{
+            color: #000000 !important;
+        }}
+        
+        /* Input-Felder (Text, Zahlen, Select): Weißer Hintergrund, schwarze Schrift */
         input, select, textarea, [data-baseweb="select"], [data-baseweb="input"] {{
             background-color: #ffffff !important;
             color: #000000 !important;
-            border: 1px solid {SGE_BLACK} !important;
+            border: 2px solid {SGE_BLACK} !important;
+            -webkit-text-fill-color: #000000 !important;
         }}
         
-        /* Text-Farben für Labels und Fließtext */
-        .stApp p, .stApp span, .stApp label, .stApp h1, .stApp h2, .stApp h3 {{
+        /* Fix für Zahlen-Input Buttons (+/-) */
+        button[kind="secondary"] {{
             color: #000000 !important;
+            background-color: #eeeeee !important;
         }}
 
-        /* Buttons (SGE ROT) */
+        /* Buttons: SGE Rot */
         div.stButton > button {{
             background-color: {SGE_RED} !important;
             color: #ffffff !important;
             border: none !important;
+            border-radius: 5px !important;
             font-weight: bold !important;
+            padding: 10px 20px !important;
         }}
         
-        /* Login Container */
-        .login-container {{
-            background-color: #f0f0f0;
-            padding: 40px;
-            border: 3px solid {SGE_BLACK};
-            border-radius: 20px;
-            text-align: center;
+        /* Überschriften-Linie */
+        h1, h2 {{
+            border-bottom: 3px solid {SGE_RED} !important;
+            padding-bottom: 10px !important;
+        }}
+        
+        /* Expander Header korrigieren */
+        .st-ae {{
+            background-color: #f8f9fa !important;
+            color: #000000 !important;
         }}
         </style>
     """, unsafe_allow_html=True)
@@ -73,17 +89,16 @@ def check_password():
         inject_sge_css()
         col1, col2, col3 = st.columns([1,2,1])
         with col2:
-            st.image(get_logo(), width=200)
-            st.markdown("<div class='login-container'>", unsafe_allow_html=True)
-            st.markdown("<h2 style='color:black !important; border:none;'>SGE Ad-Inventory</h2>", unsafe_allow_html=True)
-            pwd = st.text_input("Passwort", type="password")
+            if os.path.exists(LOGO_PATH):
+                st.image(LOGO_PATH, width=200)
+            st.title("SGE Ad-Manager")
+            pwd = st.text_input("Passwort eingeben", type="password")
             if st.button("Anmelden"):
                 if pwd == PASSWORD:
                     st.session_state.authenticated = True
                     st.rerun()
                 else:
                     st.error("Passwort falsch!")
-            st.markdown("</div>", unsafe_allow_html=True)
         return False
     return True
 
@@ -117,11 +132,11 @@ def load_data():
 def create_pdf(df, fig_buffer):
     pdf = FPDF()
     pdf.add_page()
-    try: pdf.image(get_logo(), x=175, y=10, w=22)
-    except: pass
+    if os.path.exists(LOGO_PATH):
+        pdf.image(LOGO_PATH, x=175, y=10, w=22)
     pdf.set_font("Helvetica", "B", 16)
     pdf.set_text_color(225, 0, 25) 
-    pdf.cell(0, 10, "Eintracht Frankfurt - Ad-Inventory Report", ln=True)
+    pdf.cell(0, 10, "SGE Stadion Ad-Manager Report", ln=True)
     pdf.set_text_color(0, 0, 0)
     pdf.ln(10)
     col_width = (pdf.w - 20) / 5
@@ -150,13 +165,17 @@ def create_pdf(df, fig_buffer):
 if check_password():
     inject_sge_css()
     load_data()
-    st.set_page_config(page_title="SGE Ad-Manager", layout="wide", page_icon=get_logo())
+    st.set_page_config(page_title="SGE Stadion Ad-Manager", layout="wide")
     
-    c_head1, c_head2 = st.columns([5, 1])
-    with c_head1: st.title("🦅 Stadion Ad-Inventory Manager")
-    with c_head2: st.image(get_logo(), width=90)
+    # Header mit Logo links statt Vogel-Emoji
+    c_head1, c_head2 = st.columns([1, 6])
+    with c_head1:
+        if os.path.exists(LOGO_PATH):
+            st.image(LOGO_PATH, width=80)
+    with c_head2:
+        st.title("SGE Stadion Ad-Manager")
 
-    # Sidebar
+    # --- SIDEBAR ---
     st.sidebar.header("⚙️ Konfiguration")
     if st.sidebar.button("💾 Daten speichern"):
         save_data(); st.sidebar.success("Gespeichert!")
@@ -178,7 +197,7 @@ if check_password():
 
     internal_pkg_pct = {p: (v/total_event_min*100 if input_mode=="Laufzeit (Minuten)" else v) for p,v in pkg_vals.items()}
 
-    # Content Input
+    # --- CONTENT ---
     st.header("📂 Inhalts-Liste")
     with st.expander("➕ Neuen Spot hinzufügen", expanded=True):
         with st.form("add_form", clear_on_submit=True):
@@ -231,7 +250,6 @@ if check_password():
                 else: f_playlist = v_inst + s_pool
 
                 res_df = pd.DataFrame(f_playlist); t_a, s_t = 0, []
-                # FIX FÜR DEN SYNTAX ERROR: Zeitberechnung vereinfacht
                 for d in res_df['Dauer']:
                     mm, ss = divmod(int(t_a), 60)
                     s_t.append(f"{mm:02d}:{ss:02d}")
