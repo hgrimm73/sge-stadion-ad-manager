@@ -13,53 +13,65 @@ STORAGE_FILE = "data_storage.json"
 PASSWORD = "SGE#2026adds"
 SGE_RED = "#E10019"
 SGE_BLACK = "#000000"
-LOGO_PATH = "logo.png"
+LOGO_PATH = "logo.png" # Muss auf GitHub hochgeladen sein
 
-# --- CSS: FORCE SGE BRANDING ---
+# --- CSS: ABSOLUTER KONTRAST-FIX & SGE BRANDING ---
 def inject_sge_css():
     st.markdown(f"""
         <style>
-        /* Basis-Layout auf Weiß */
+        /* 1. App-Hintergrund immer Weiß */
         .stApp {{
             background-color: #ffffff !important;
         }}
         
-        /* Sidebar: Schwarz mit weißer Schrift */
+        /* 2. Sidebar: Tiefschwarz */
         [data-testid="stSidebar"] {{
             background-color: {SGE_BLACK} !important;
         }}
-        [data-testid="stSidebar"] * {{
+        
+        /* 3. Texte in der Sidebar: Immer Weiß */
+        [data-testid="stSidebar"] p, [data-testid="stSidebar"] span, 
+        [data-testid="stSidebar"] label, [data-testid="stSidebar"] div {{
             color: #ffffff !important;
         }}
 
-        /* Alle Texte im Hauptbereich auf Schwarz zwingen */
-        .stApp p, .stApp span, .stApp label, .stApp h1, .stApp h2, .stApp h3, .stApp div {{
+        /* 4. Hauptbereich: Alle Texte (Überschriften, Labels, Fließtext) immer Schwarz */
+        .stApp p, .stApp span, .stApp label, .stApp h1, .stApp h2, .stApp h3, .stApp li {{
             color: #000000 !important;
         }}
         
-        /* Eingabefelder: Weißer Hintergrund, schwarzer Text */
-        input, select, textarea, [data-baseweb="select"], [data-baseweb="input"] {{
+        /* 5. EINGABEFELDER: Weißer Hintergrund, tiefschwarzer Text, schwarzer Rand */
+        input, select, textarea, [data-baseweb="select"], [data-baseweb="input"], .stSelectbox div {{
             background-color: #ffffff !important;
             color: #000000 !important;
             border: 2px solid {SGE_BLACK} !important;
-            -webkit-text-fill-color: #000000 !important;
+            -webkit-text-fill-color: #000000 !important; /* Fix für manche Browser-Engines */
         }}
         
-        /* Buttons: SGE Rot */
+        /* 6. Buttons: SGE Rot mit weißer Schrift */
         div.stButton > button {{
             background-color: {SGE_RED} !important;
             color: #ffffff !important;
             border: none !important;
+            border-radius: 4px !important;
             font-weight: bold !important;
         }}
 
-        /* Login-Box Optimierung */
+        /* 7. LOGIN-TITEL: Einzeilig erzwingen */
         .login-title {{
             white-space: nowrap !important;
-            font-size: 2.5rem !important;
-            font-weight: bold !important;
+            font-size: 2.2rem !important;
+            font-weight: 800 !important;
             color: {SGE_BLACK} !important;
+            text-align: center;
+            margin-top: -10px !important;
             margin-bottom: 20px !important;
+        }}
+
+        /* 8. Fix für die Daten-Tabelle (Header schwarz/weiß) */
+        thead tr th {{
+            background-color: {SGE_BLACK} !important;
+            color: white !important;
         }}
         </style>
     """, unsafe_allow_html=True)
@@ -71,22 +83,22 @@ def check_password():
     
     if not st.session_state.authenticated:
         inject_sge_css()
-        # Zentrierter Login ohne störende Spalten für den Text
+        # Nur eine Spalte für den Fokus
         _, col, _ = st.columns([1, 2, 1])
         with col:
             if os.path.exists(LOGO_PATH):
-                st.image(LOGO_PATH, width=250)
+                st.image(LOGO_PATH, width=220)
             
-            # Titel in einer Zeile erzwingen
+            # Kein st.title (wegen Abstand), sondern direkter Titel
             st.markdown('<p class="login-title">SGE Ad-Manager</p>', unsafe_allow_html=True)
             
-            pwd = st.text_input("Passwort eingeben", type="password")
+            pwd = st.text_input("Passwort eingeben", type="password", key="login_pwd")
             if st.button("Anmelden"):
                 if pwd == PASSWORD:
                     st.session_state.authenticated = True
                     st.rerun()
                 else:
-                    st.error("Passwort falsch!")
+                    st.error("Passwort inkorrekt.")
         return False
     return True
 
@@ -153,22 +165,21 @@ def create_pdf(df, fig_buffer):
 if check_password():
     inject_sge_css()
     load_data()
-    # Logo als Icon im Browser-Tab
     st.set_page_config(page_title="SGE Stadion Ad-Manager", layout="wide", page_icon=LOGO_PATH if os.path.exists(LOGO_PATH) else None)
     
-    # Header mit echtem Logo statt Emoji
+    # Header: Logo und Text auf einer Linie
     c_logo, c_title = st.columns([1, 6])
     with c_logo:
         if os.path.exists(LOGO_PATH):
-            st.image(LOGO_PATH, width=80)
+            st.image(LOGO_PATH, width=85)
     with c_title:
         st.title("SGE Stadion Ad-Manager")
 
     # --- SIDEBAR ---
     st.sidebar.header("⚙️ Konfiguration")
-    if st.sidebar.button("💾 Daten speichern"):
+    if st.sidebar.button("💾 Daten speichern", key="save_btn"):
         save_data(); st.sidebar.success("Gespeichert!")
-    if st.sidebar.button("🚪 Abmelden"):
+    if st.sidebar.button("🚪 Abmelden", key="logout_btn"):
         st.session_state.authenticated = False; st.rerun()
 
     input_mode = st.sidebar.radio("Basis", ["Prozent", "Laufzeit (Minuten)"], 
@@ -246,7 +257,8 @@ if check_password():
                 res_df.insert(0, "Start im Loop", s_t)
                 
                 st.subheader("📊 Loop-Playliste")
-                st.dataframe(res_df[['Start im Loop', 'Name', 'Dauer', 'Typ', 'id']], use_container_width=True)
+                st.dataframe(res_df[['Start im Loop', 'Name', 'Dauer', 'Typ', 'id']], use_container_width=True,
+                             column_config={"Dauer": st.column_config.Column(width="small"), "id": st.column_config.Column(width="small")})
 
                 col_e1, col_e2 = st.columns([1, 1])
                 with col_e1:
