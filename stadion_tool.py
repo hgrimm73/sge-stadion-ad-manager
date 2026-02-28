@@ -7,7 +7,6 @@ import os
 import matplotlib.pyplot as plt
 from fpdf import FPDF
 import io
-from PIL import Image
 
 # --- KONFIGURATION & BRANDING ---
 STORAGE_FILE = "data_storage.json"
@@ -15,7 +14,7 @@ PASSWORD = "SGE#2026adds"
 SGE_RED = "#E10019"
 SGE_BLACK = "#000000"
 
-# Logo-Logik: Priorität auf die lokale Datei logo.png
+# Logo-Logik: Lokal oder Fallback
 LOGO_PATH = "logo.png"
 LOGO_URL_FALLBACK = "https://upload.wikimedia.org/wikipedia/commons/thumb/0/04/Eintracht_Frankfurt_Logo.svg/1024px-Eintracht_Frankfurt_Logo.svg.png"
 
@@ -24,53 +23,37 @@ def get_logo():
         return LOGO_PATH
     return LOGO_URL_FALLBACK
 
-# --- EXTREM ROBUSTES CSS FÜR KONTRAST ---
+# --- EXTREM ROBUSTES CSS ---
 def inject_sge_css():
     st.markdown(f"""
         <style>
-        /* Hintergrund der gesamten App */
-        .stApp {{
+        .stApp {{ background-color: #ffffff !important; }}
+        
+        /* Sidebar */
+        [data-testid="stSidebar"] {{ background-color: {SGE_BLACK} !important; }}
+        [data-testid="stSidebar"] * {{ color: #ffffff !important; }}
+
+        /* KONTRAST-FIX: Alle Eingabefelder auf Weiß/Schwarz */
+        input, select, textarea, [data-baseweb="select"], [data-baseweb="input"] {{
             background-color: #ffffff !important;
+            color: #000000 !important;
+            border: 1px solid {SGE_BLACK} !important;
         }}
         
-        /* Sidebar Styling */
-        [data-testid="stSidebar"] {{
-            background-color: {SGE_BLACK} !important;
-        }}
-        
-        /* Texte in der Sidebar auf Weiß */
-        [data-testid="stSidebar"] p, [data-testid="stSidebar"] span, [data-testid="stSidebar"] label {{
-            color: #ffffff !important;
+        /* Text-Farben für Labels und Fließtext */
+        .stApp p, .stApp span, .stApp label, .stApp h1, .stApp h2, .stApp h3 {{
+            color: #000000 !important;
         }}
 
-        /* ALLE Eingabefelder (Text, Zahlen, Select) auf Weiß/Schwarz zwingen */
-        input, select, textarea, [data-baseweb="select"] {{
-            background-color: #ffffff !important;
-            color: {SGE_BLACK} !important;
-            -webkit-text-fill-color: {SGE_BLACK} !important;
-        }}
-        
-        /* Speziell für Number-Input Buttons (+/-) */
-        button[kind="secondary"] {{
-            color: {SGE_BLACK} !important;
-        }}
-
-        /* Buttons Styling (SGE ROT) */
+        /* Buttons (SGE ROT) */
         div.stButton > button {{
             background-color: {SGE_RED} !important;
             color: #ffffff !important;
             border: none !important;
-            border-radius: 5px !important;
             font-weight: bold !important;
         }}
         
-        /* Überschriften */
-        h1, h2, h3 {{
-            color: {SGE_BLACK} !important;
-            border-bottom: 2px solid {SGE_RED} !important;
-        }}
-
-        /* Login Box Styling */
+        /* Login Container */
         .login-container {{
             background-color: #f0f0f0;
             padding: 40px;
@@ -92,8 +75,8 @@ def check_password():
         with col2:
             st.image(get_logo(), width=200)
             st.markdown("<div class='login-container'>", unsafe_allow_html=True)
-            st.markdown(f"<h2 style='color:black !important; border:none;'>SGE Ad-Inventory</h2>", unsafe_allow_html=True)
-            pwd = st.text_input("Passwort eingeben", type="password")
+            st.markdown("<h2 style='color:black !important; border:none;'>SGE Ad-Inventory</h2>", unsafe_allow_html=True)
+            pwd = st.text_input("Passwort", type="password")
             if st.button("Anmelden"):
                 if pwd == PASSWORD:
                     st.session_state.authenticated = True
@@ -134,10 +117,8 @@ def load_data():
 def create_pdf(df, fig_buffer):
     pdf = FPDF()
     pdf.add_page()
-    try:
-        pdf.image(get_logo(), x=175, y=10, w=22)
-    except:
-        pass
+    try: pdf.image(get_logo(), x=175, y=10, w=22)
+    except: pass
     pdf.set_font("Helvetica", "B", 16)
     pdf.set_text_color(225, 0, 25) 
     pdf.cell(0, 10, "Eintracht Frankfurt - Ad-Inventory Report", ln=True)
@@ -161,8 +142,7 @@ def create_pdf(df, fig_buffer):
         pdf.ln()
     pdf.ln(10)
     img_path = "temp_plot.png"
-    with open(img_path, "wb") as f:
-        f.write(fig_buffer.getvalue())
+    with open(img_path, "wb") as f: f.write(fig_buffer.getvalue())
     pdf.image(img_path, x=10, y=pdf.get_y(), w=100)
     return bytes(pdf.output())
 
@@ -173,19 +153,15 @@ if check_password():
     st.set_page_config(page_title="SGE Ad-Manager", layout="wide", page_icon=get_logo())
     
     c_head1, c_head2 = st.columns([5, 1])
-    with c_head1:
-        st.title("🦅 Stadion Ad-Inventory Manager")
-    with c_head2:
-        st.image(get_logo(), width=90)
+    with c_head1: st.title("🦅 Stadion Ad-Inventory Manager")
+    with c_head2: st.image(get_logo(), width=90)
 
-    # --- SIDEBAR ---
+    # Sidebar
     st.sidebar.header("⚙️ Konfiguration")
     if st.sidebar.button("💾 Daten speichern"):
-        save_data()
-        st.sidebar.success("Gespeichert!")
+        save_data(); st.sidebar.success("Gespeichert!")
     if st.sidebar.button("🚪 Abmelden"):
-        st.session_state.authenticated = False
-        st.rerun()
+        st.session_state.authenticated = False; st.rerun()
 
     input_mode = st.sidebar.radio("Basis", ["Prozent", "Laufzeit (Minuten)"], 
                                   index=0 if st.session_state.config["input_mode"] == "Prozent" else 1)
@@ -202,7 +178,7 @@ if check_password():
 
     internal_pkg_pct = {p: (v/total_event_min*100 if input_mode=="Laufzeit (Minuten)" else v) for p,v in pkg_vals.items()}
 
-    # --- CONTENT ---
+    # Content Input
     st.header("📂 Inhalts-Liste")
     with st.expander("➕ Neuen Spot hinzufügen", expanded=True):
         with st.form("add_form", clear_on_submit=True):
@@ -217,9 +193,7 @@ if check_password():
     if st.session_state.spots:
         for spot in st.session_state.spots:
             cn, cd, ct, cb = st.columns([3, 1, 2, 1])
-            cn.text(spot['Name'])
-            cd.text(f"{spot['Dauer']}s")
-            ct.text(f"Typ: {spot['Typ']}")
+            cn.text(spot['Name']); cd.text(f"{spot['Dauer']}s"); ct.text(f"Typ: {spot['Typ']}")
             if cb.button("Löschen", key=f"del_{spot['id']}"):
                 st.session_state.spots = [s for s in st.session_state.spots if s['id'] != spot['id']]
                 save_data(); st.rerun()
@@ -245,6 +219,7 @@ if check_password():
                 if v_list:
                     while (cur_s_t + sum(v['Dauer'] for v in v_inst)) < f_duration or v_c < len(v_list):
                         v_inst.append(v_list[v_c % len(v_list)]); v_c += 1
+                
                 f_playlist = []
                 if p_mode == "Durchmischt":
                     random.shuffle(s_pool); v_i = 0
@@ -256,4 +231,27 @@ if check_password():
                 else: f_playlist = v_inst + s_pool
 
                 res_df = pd.DataFrame(f_playlist); t_a, s_t = 0, []
-                for d in res_df['Dauer']: s_t.append(f"{int(t_a//60):02d
+                # FIX FÜR DEN SYNTAX ERROR: Zeitberechnung vereinfacht
+                for d in res_df['Dauer']:
+                    mm, ss = divmod(int(t_a), 60)
+                    s_t.append(f"{mm:02d}:{ss:02d}")
+                    t_a += d
+                res_df.insert(0, "Start im Loop", s_t)
+                
+                st.subheader("📊 Loop-Playliste")
+                st.dataframe(res_df[['Start im Loop', 'Name', 'Dauer', 'Typ', 'id']], use_container_width=True,
+                             column_config={"Dauer": st.column_config.Column(width="small"), "id": st.column_config.Column(width="small")})
+
+                col_e1, col_e2 = st.columns([1, 1])
+                with col_e1:
+                    csv = res_df.to_csv(index=False, sep=';').encode('utf-8-sig')
+                    st.download_button("📥 Excel-Export", csv, "playlist.csv", "text/csv")
+                    p_data = res_df.groupby(['Name', 'Typ'])['Dauer'].sum().reset_index()
+                    fig, ax = plt.subplots(figsize=(3, 3))
+                    colors = [plt.get_cmap('tab20')(i % 20) if t != 'Verein (Puffer)' else '#d3d3d3' for i, t in enumerate(p_data['Typ'])]
+                    ax.pie(p_data['Dauer'], labels=p_data['Name'], autopct='%1.1f%%', startangle=90, colors=colors, wedgeprops={'edgecolor': 'black', 'linewidth': 0.5}, textprops={'fontsize': 7})
+                    ax.axis('equal'); st.pyplot(fig)
+                    buf = io.BytesIO(); fig.savefig(buf, format="png", bbox_inches='tight', dpi=150)
+                    p_bytes = create_pdf(res_df[['Start im Loop', 'Name', 'Dauer', 'Typ', 'id']], buf)
+                    st.download_button("📄 PDF-Report", p_bytes, "SGE_Report.pdf", "application/pdf")
+                    plt.close(fig)
